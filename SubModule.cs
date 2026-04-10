@@ -22,6 +22,9 @@ namespace HarmonyPatchScanner
             // Utilities.GetModulesNames() returns module IDs in launcher sort order —
             // the same array the game passed to ModuleHelper.InitializeModules().
             ModuleLoadOrderHelper.Build();
+
+            // Populate the module dropdown now that the load order is known.
+            ScannerSettings.Instance?.RefreshModuleDropdown();
         }
 
         protected override void OnGameStart(Game game, IGameStarter gameStarter)

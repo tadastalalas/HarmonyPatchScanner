@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using MCM.Abstractions.Attributes;
 using MCM.Abstractions.Attributes.v2;
 using MCM.Abstractions.Base.Global;
+using MCM.Common;
 
 namespace HarmonyPatchScanner
 {
@@ -31,5 +33,46 @@ namespace HarmonyPatchScanner
             HintText = "Find methods with multiple patches that might conflict.")]
         [SettingPropertyGroup("Actions")]
         public Action FindDuplicates { get; set; } = ConflictScanner.FindDuplicatePatches;
+
+        private static Dropdown<ModuleWrapper> _moduleDropdown = new Dropdown<ModuleWrapper>(
+            new[] { new ModuleWrapper(null, "-- Select a module --") }, 0);
+
+        [SettingPropertyDropdown("Select Module", Order = 0, RequireRestart = false,
+            HintText = "Select a loaded mod module to scan its Harmony patches in isolation.")]
+        [SettingPropertyGroup("Module Scanner")]
+        public Dropdown<ModuleWrapper> SelectedModule
+        {
+            get => _moduleDropdown;
+            set => _moduleDropdown = value;
+        }
+
+        [SettingPropertyButton("Scan Selected Module", Content = "Scan Module", Order = 1, RequireRestart = false,
+            HintText = "Scan all Harmony patches made by the selected module and find its conflicts with other mods. Results are saved to a separate log file.")]
+        [SettingPropertyGroup("Module Scanner")]
+        public Action ScanSelectedModule { get; set; } = ModuleScanner.ScanSelectedModule;
+
+        /// <summary>
+        /// Rebuilds the dropdown with the current list of custom (non-official,
+        /// non-community-library) modules. Called after ModuleLoadOrderHelper.Build().
+        /// </summary>
+        internal void RefreshModuleDropdown()
+        {
+            var customModules = ModuleLoadOrderHelper.GetCustomModules();
+
+            var items = new List<ModuleWrapper> { new ModuleWrapper(null, "-- Select a module --") };
+            foreach (var (moduleId, moduleName) in customModules)
+                items.Add(new ModuleWrapper(moduleId, moduleName));
+
+            _moduleDropdown = new Dropdown<ModuleWrapper>(items, 0);
+        }
+
+        /// <summary>
+        /// Returns the module Id from the currently selected dropdown entry,
+        /// or null if the placeholder is selected.
+        /// </summary>
+        internal string? GetSelectedModuleId()
+        {
+            return _moduleDropdown?.SelectedValue?.ModuleId;
+        }
     }
 }

@@ -29,11 +29,16 @@ namespace HarmonyPatchScanner
         // Stored in launcher order for log output
         private static List<(int Position, string ModuleId, string ModuleName)> _orderedModules = new();
 
+        // Key   = module Id (e.g. "Bannerlord.Harmony")
+        // Value = set of assembly names (DLL names without extension) belonging to that module
+        private static Dictionary<string, HashSet<string>>? _assembliesByModuleId;
+
         public static void Build()
         {
-            _orderByAssembly    = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            _moduleIdByAssembly = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            _orderedModules     = new List<(int, string, string)>();
+            _orderByAssembly      = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            _moduleIdByAssembly   = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            _assembliesByModuleId = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+            _orderedModules       = new List<(int, string, string)>();
 
             try
             {
@@ -50,6 +55,8 @@ namespace HarmonyPatchScanner
 
                     _orderedModules.Add((position, moduleInfo.Id, moduleInfo.Name));
 
+                    var assemblySet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
                     // SubModuleInfo.DLLName is e.g. "MyMod.dll".
                     // Stripping ".dll" gives the assembly name that
                     // Assembly.GetName().Name returns at runtime.
@@ -59,6 +66,8 @@ namespace HarmonyPatchScanner
 
                         if (!string.IsNullOrEmpty(assemblyName))
                         {
+                            assemblySet.Add(assemblyName);
+
                             if (!_orderByAssembly.ContainsKey(assemblyName))
                                 _orderByAssembly[assemblyName] = position;
 
@@ -67,9 +76,14 @@ namespace HarmonyPatchScanner
                         }
                     }
 
-                    // Also index by module Id as a fallback (e.g. "Bannerlord.MyMod")
-                    if (!string.IsNullOrEmpty(moduleInfo.Id) && !_orderByAssembly.ContainsKey(moduleInfo.Id))
-                        _orderByAssembly[moduleInfo.Id] = position;
+                    if (!string.IsNullOrEmpty(moduleInfo.Id))
+                    {
+                        _assembliesByModuleId[moduleInfo.Id] = assemblySet;
+
+                        // Also index by module Id as a fallback (e.g. "Bannerlord.MyMod")
+                        if (!_orderByAssembly.ContainsKey(moduleInfo.Id))
+                            _orderByAssembly[moduleInfo.Id] = position;
+                    }
                 }
             }
             catch
@@ -113,6 +127,50 @@ namespace HarmonyPatchScanner
                 if (string.Equals(id, moduleId, StringComparison.OrdinalIgnoreCase))
                     return true;
             return false;
+        }
+
+        /// <summary>
+        /// Returns all loaded modules in launcher order, excluding official TaleWorlds
+        /// modules and well-known community libraries. Suitable for populating a
+        /// dropdown with user-installed custom mods.
+        /// </summary>
+        public static List<(string ModuleId, string ModuleName)> GetCustomModules()
+        {
+            var result = new List<(string, string)>();
+            foreach (var (pos, id, name) in _orderedModules)
+            {
+                if (IsOfficialModule(id))                continue;
+                if (FilterHelper.IsCommunityLibrary(id)) continue;
+
+                result.Add((id, name));
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Returns the set of assembly names (DLL names without extension) that
+        /// belong to the given module Id, or null if the module is not known.
+        /// </summary>
+        public static HashSet<string>? GetAssembliesForModule(string? moduleId)
+        {
+            if (_assembliesByModuleId == null || string.IsNullOrEmpty(moduleId))
+                return null;
+
+            return _assembliesByModuleId.TryGetValue(moduleId, out var set) ? set : null;
+        }
+
+        /// <summary>
+        /// Returns the display name for a module Id, or the Id itself as a fallback.
+        /// </summary>
+        public static string GetModuleName(string? moduleId)
+        {
+            if (string.IsNullOrEmpty(moduleId)) return "Unknown";
+
+            foreach (var (pos, id, name) in _orderedModules)
+                if (string.Equals(id, moduleId, StringComparison.OrdinalIgnoreCase))
+                    return name;
+
+            return moduleId;
         }
 
         /// <summary>
