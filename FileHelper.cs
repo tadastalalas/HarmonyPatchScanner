@@ -3,13 +3,14 @@ using TaleWorlds.Library;
 
 namespace HarmonyPatchScanner
 {
-    public static class FileHelper
+    internal static class FileHelper
     {
-        public static string GetOutputPath(string fileName)
+        /// <summary>Modules/HarmonyPatchScanner/logs/{subFolder}/{fileName}; creates the folder if needed.</summary>
+        internal static string GetOutputPath(string subFolder, string fileName)
         {
-            var modulesPath = Path.Combine(BasePath.Name, "Modules", "HarmonyPatchScanner", "logs");
-            Directory.CreateDirectory(modulesPath);
-            return Path.Combine(modulesPath, fileName);
+            string folder = Path.Combine(BasePath.Name, "Modules", "HarmonyPatchScanner", "logs", subFolder);
+            Directory.CreateDirectory(folder);
+            return Path.Combine(folder, fileName);
         }
     }
 }

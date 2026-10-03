@@ -1,6 +1,5 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Text;
 using TaleWorlds.Engine;
 using TaleWorlds.ModuleManager;
 
@@ -92,6 +91,19 @@ namespace HarmonyPatchScanner
             }
         }
 
+        /// <summary>All loaded modules in launcher order (position is 1-based).</summary>
+        internal static IReadOnlyList<(int Position, string ModuleId, string ModuleName)> OrderedModules => _orderedModules;
+
+        /// <summary>True if a module with this id is loaded (case-insensitive).</summary>
+        internal static bool IsKnownModule(string? moduleId)
+        {
+            if (string.IsNullOrEmpty(moduleId)) return false;
+            foreach ((int _, string id, string _) in _orderedModules)
+                if (string.Equals(id, moduleId, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            return false;
+        }
+
         /// <summary>
         /// Returns the 1-based launcher position for a given assembly name,
         /// or null if it could not be determined.
@@ -171,33 +183,6 @@ namespace HarmonyPatchScanner
                     return name;
 
             return moduleId;
-        }
-
-        /// <summary>
-        /// Appends the full launcher load order list to a StringBuilder — useful
-        /// as a header in every log file so the developer knows exactly what was loaded.
-        /// </summary>
-        public static void AppendLoadOrderHeader(StringBuilder sb)
-        {
-            sb.AppendLine("════════════════════════════════════════════════════");
-            sb.AppendLine("  Launcher Load Order (authoritative DLL load sequence)");
-            sb.AppendLine("════════════════════════════════════════════════════");
-
-            if (_orderedModules.Count == 0)
-            {
-                sb.AppendLine("  (could not determine load order)");
-            }
-            else
-            {
-                foreach (var (pos, id, name) in _orderedModules)
-                {
-                    var officialTag   = IsOfficialModule(id)                   ? "  [official]"   : string.Empty;
-                    var communityTag  = FilterHelper.IsCommunityLibrary(id)    ? "  [community lib]" : string.Empty;
-                    sb.AppendLine($"  #{pos,-3} {name,-40} ({id}){officialTag}{communityTag}");
-                }
-            }
-
-            sb.AppendLine();
         }
 
         // "MyMod.dll" → "MyMod",  "MyMod" → "MyMod"

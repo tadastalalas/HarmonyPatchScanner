@@ -15,22 +15,32 @@ namespace HarmonyPatchScanner
         public override string FormatType => "json2";
 
         [SettingPropertyBool("Exclude Common Lifecycle Methods", Order = 0, RequireRestart = false,
-            HintText = "Exclude common mod lifecycle method patches (OnSubModuleLoad, OnGameStart, etc.) that are typically used for initialization.")]
+            HintText = "Hide patches on SubModule lifecycle hooks (OnSubModuleLoad, OnGameStart, OnApplicationTick, ...). Libraries patch these on every mod's SubModule class, which only adds noise.")]
         [SettingPropertyGroup("Filters")]
         public bool ExcludeCommonLifecycleMethods { get; set; } = true;
 
         [SettingPropertyBool("Exclude Community Libraries", Order = 1, RequireRestart = false,
-            HintText = "Exclude patches from common community libraries that are present in almost every mod list: Harmony, BetterExceptionWindow, ButterLib, UIExtenderEx, and Mod Configuration Menu v5. Their internal patches are rarely relevant when debugging your own mod.")]
+            HintText = "Hide patches from Harmony, BetterExceptionWindow, ButterLib, UIExtenderEx and Mod Configuration Menu v5. They still appear inside a method's execution flow when that method is also patched by your mods, so the order shown stays truthful.")]
         [SettingPropertyGroup("Filters")]
         public bool ExcludeCommunityLibraries { get; set; } = true;
 
+        [SettingPropertyBool("Analyze Prefix Return Values", Order = 0, RequireRestart = false,
+            HintText = "Read the IL of every bool prefix to tell whether it always returns true, always returns false, or decides at runtime. Read-only; nothing is executed.")]
+        [SettingPropertyGroup("Analysis")]
+        public bool AnalyzePrefixReturns { get; set; } = true;
+
+        [SettingPropertyBool("Deep Transpiler Analysis", Order = 1, RequireRestart = false,
+            HintText = "Re-apply each method's transpiler chain step by step to see what every transpiler really changes and to catch transpilers that change nothing (missing anchor) or throw. This executes mod transpiler code again; well-written transpilers are side-effect free, badly written ones may log or misbehave.")]
+        [SettingPropertyGroup("Analysis")]
+        public bool DeepTranspilerAnalysis { get; set; } = false;
+
         [SettingPropertyButton("Scan Harmony Patches", Content = "Scan Now", Order = 1, RequireRestart = false,
-            HintText = "Scan all mods for Harmony patches.")]
+            HintText = "List every Harmony patch of every mod, grouped by mod, with what each patch can do. Saved to Modules/HarmonyPatchScanner/logs/<mainmenu|campaign|mission>/AllHarmonyPatches.txt depending on where you run it, so you can keep one scan per game state.")]
         [SettingPropertyGroup("Actions")]
         public Action ScanPatches { get; set; } = PatchScanner.ScanAndLog;
 
         [SettingPropertyButton("Find Duplicate Patches", Content = "Find Conflicts", Order = 2, RequireRestart = false,
-            HintText = "Find methods with multiple patches that might conflict.")]
+            HintText = "Find methods patched by more than one mod, show the exact execution order and explain what interferes. Saved to logs/<mainmenu|campaign|mission>/DuplicateHarmonyPatches.txt.")]
         [SettingPropertyGroup("Actions")]
         public Action FindDuplicates { get; set; } = ConflictScanner.FindDuplicatePatches;
 
@@ -47,7 +57,7 @@ namespace HarmonyPatchScanner
         }
 
         [SettingPropertyButton("Scan Selected Module", Content = "Scan Module", Order = 1, RequireRestart = false,
-            HintText = "Scan all Harmony patches made by the selected module and find its conflicts with other mods. Results are saved to a separate log file.")]
+            HintText = "Everything about one mod: its patches, the methods it shares with other mods (with your patches marked), and problems in its own patches. Saved to logs/<mainmenu|campaign|mission>/ModuleScan_<name>.txt.")]
         [SettingPropertyGroup("Module Scanner")]
         public Action ScanSelectedModule { get; set; } = ModuleScanner.ScanSelectedModule;
 
